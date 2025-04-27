@@ -155,7 +155,7 @@ main :: proc()
 			{
 				if key.x > x do break
 
-				if x >= key.x && x <= key.x + key.w
+				if x >= key.x && x <= key.x + key.w && y <= key.h
 				{
 					result = i32(i)
 					if key.is_elevated do break
@@ -166,16 +166,11 @@ main :: proc()
 		return result
 	}
 
+	prev_key_under_mouse := i32(-1)
+
 	for !rl.WindowShouldClose()
 	{
 		highlighted_keys := u64(0)
-
-		key_under_mouse := KeyUnderMouse(keys[:]);
-
-		if key_under_mouse != -1 && rl.IsMouseButtonDown(rl.MouseButton.LEFT)
-		{
-			highlighted_keys |= 1 << uint(key_under_mouse)
-		}
 
 		for letter, i in keymap_letters
 		{
@@ -192,10 +187,27 @@ main :: proc()
 			{
 				ToneCur = (ToneCur + 1) % len(Tones)
 				Tones[ToneCur] = Tone{
-					freq = 261.63*math.pow(2, f32(i)/12),
+					freq = (261.63/2)*math.pow(2, f32(i)/12),
 				}
 			}
 		}
+
+		key_under_mouse := KeyUnderMouse(keys[:]);
+
+		if key_under_mouse != -1
+		{
+			if rl.IsMouseButtonDown(rl.MouseButton.LEFT) do highlighted_keys |= 1 << uint(key_under_mouse)
+
+			if rl.IsMouseButtonPressed(rl.MouseButton.LEFT) || (rl.IsMouseButtonDown(rl.MouseButton.LEFT) && key_under_mouse != prev_key_under_mouse)
+			{
+				ToneCur = (ToneCur + 1) % len(Tones)
+				Tones[ToneCur] = Tone{
+					freq = (261.63/2)*math.pow(2, f32(key_under_mouse)/12),
+				}
+			}
+		}
+
+		prev_key_under_mouse = key_under_mouse
 
 		rl.BeginDrawing()
 		{

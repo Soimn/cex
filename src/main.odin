@@ -2,35 +2,101 @@ package cex
 
 import rl "vendor:raylib"
 import "core:fmt"
+import "core:math"
 
 Color_Background :: rl.Color{199, 194, 170, 255}
 Color_Panel      :: rl.Color{210, 204, 180, 255}
 Color_PanelHi    :: rl.Color{ 72,  69,  60, 255}
-Color_BlueLo     :: rl.Color{ 34,  68,  67, 255}
-Color_BlueHi     :: rl.Color{185, 205, 187, 255}
+Color_BlueLo     :: rl.Color{ 34,  68, 107, 255}
+Color_BlueHi     :: rl.Color{185, 205, 227, 255}
+Color_RedLo      :: rl.Color{127,  28,   4, 255}
+Color_RedHi      :: rl.Color{247, 165, 155, 255}
 
-HEIGHT :: 1080
+WIDTH :: 1920
+
+NUM_OCTAVES  :: i32(3)
+OCTAVE_WIDTH :: i32(WIDTH/NUM_OCTAVES)
+KEY_WIDTH    :: i32(OCTAVE_WIDTH/7)
+KEY_HEIGHT   :: KEY_WIDTH*4
+SHADOW_WIDTH :: KEY_WIDTH/16
+FONT_SIZE    :: i32(32)
+
+HEIGHT :: KEY_HEIGHT
+
+SAMPLE_RATE :: 44100
+
+Tone :: struct
+{
+	freq: f32,
+	t: f32,
+	ts: f32,
+}
+
+ToneCur := 0
+Tones   := [8]Tone{}
+
+AudioCallback :: proc($idx: int) -> (proc "c" (data: rawptr, frames: u32))
+{
+	return proc "c" (data: rawptr, frames: u32)
+	{
+		tone := &Tones[idx]
+
+		for i in 0..<frames
+		{
+			a := f32(0.3*32767.0)
+
+			f := a*(1.0*math.sin(1*2.0*rl.PI*tone.t))
+			f += a*(0.5*math.sin(2*2.0*rl.PI*tone.t))
+			f += a*(0.25*math.sin(3*2.0*rl.PI*tone.t))
+			f += a*(0.125*math.sin(4*2.0*rl.PI*tone.t))
+			f += a*(0.0625*math.sin(5*2.0*rl.PI*tone.t))
+			f += a*(0.03125*math.sin(6*2.0*rl.PI*tone.t))
+
+			tone.t  += tone.freq/f32(SAMPLE_RATE)
+			tone.ts += 2/f32(SAMPLE_RATE)
+
+			if tone.t > 1 do tone.t -= 1
+
+			f *= math.exp(-tone.ts*tone.ts)
+
+			(([^]i16)(data))[i] = i16(f)
+		}
+	}
+}
 
 main :: proc()
 {
-	WIDTH :: 1920
 
-	num_octaves :: i32(3)
-	keymap_letters := [num_octaves*12]cstring{
+	rl.InitWindow(WIDTH, HEIGHT, "CEX")
+	rl.SetTargetFPS(60)
+	
+	rl.InitAudioDevice()
+
+	streams := [8]rl.AudioStream{}
+	streams[0] = rl.LoadAudioStream(SAMPLE_RATE, 16, 1)
+	rl.SetAudioStreamCallback(streams[0], AudioCallback(0))
+	streams[1] = rl.LoadAudioStream(SAMPLE_RATE, 16, 1)
+	rl.SetAudioStreamCallback(streams[1], AudioCallback(1))
+	streams[2] = rl.LoadAudioStream(SAMPLE_RATE, 16, 1)
+	rl.SetAudioStreamCallback(streams[2], AudioCallback(2))
+	streams[3] = rl.LoadAudioStream(SAMPLE_RATE, 16, 1)
+	rl.SetAudioStreamCallback(streams[3], AudioCallback(3))
+	streams[4] = rl.LoadAudioStream(SAMPLE_RATE, 16, 1)
+	rl.SetAudioStreamCallback(streams[4], AudioCallback(4))
+	streams[5] = rl.LoadAudioStream(SAMPLE_RATE, 16, 1)
+	rl.SetAudioStreamCallback(streams[5], AudioCallback(5))
+	streams[6] = rl.LoadAudioStream(SAMPLE_RATE, 16, 1)
+	rl.SetAudioStreamCallback(streams[6], AudioCallback(6))
+	streams[7] = rl.LoadAudioStream(SAMPLE_RATE, 16, 1)
+	rl.SetAudioStreamCallback(streams[7], AudioCallback(7))
+
+	for i in 0..<8 do rl.PlayAudioStream(streams[i])
+
+	keymap_letters := [NUM_OCTAVES*12]cstring{
 		"Q", "2", "W", "3", "E", "R", "5", "T", "6", "Y", "7", "U",
 		"I", "9", "O", "0", "P", "Z", "S", "X", "D", "C", "F", "V",
 		"B", "H", "N", "J", "M", ",", "L", ".", nil, nil, nil, nil,
 	}
-	octave_width :: i32(WIDTH/num_octaves)
-	key_width    :: i32(octave_width/7)
-	key_height   :: key_width*4
-	shadow_width :: key_width/16
-	font_size    :: i32(32)
-
-	HEIGHT :: key_height
-
-	rl.InitWindow(WIDTH, HEIGHT, "CEX")
-	rl.SetTargetFPS(60)
 
 	Key :: struct
 	{
@@ -42,8 +108,8 @@ main :: proc()
 		is_elevated: bool,
 	}
 
-	keys: [num_octaves*12]Key;
-	for i in 0..<num_octaves
+	keys: [NUM_OCTAVES*12]Key;
+	for i in 0..<NUM_OCTAVES
 	{
 		for j, jj in ([7]i32{0, 2, 4, 5, 7, 9, 11})
 		{
@@ -51,10 +117,10 @@ main :: proc()
 
 			keys[k] = Key{
 				letter          = keymap_letters[k],
-				text_width      = rl.MeasureText(keymap_letters[k], font_size),
-				x               = i*octave_width + i32(jj)*key_width,
-				w               = (jj == 6 ? octave_width - 6*key_width : key_width),
-				h               = key_height,
+				text_width      = rl.MeasureText(keymap_letters[k], FONT_SIZE),
+				x               = i*OCTAVE_WIDTH + i32(jj)*KEY_WIDTH,
+				w               = (jj == 6 ? OCTAVE_WIDTH - 6*KEY_WIDTH : KEY_WIDTH),
+				h               = KEY_HEIGHT,
 				is_elevated     = false,
 			}
 		}
@@ -67,10 +133,10 @@ main :: proc()
 
 			keys[k] = Key{
 				letter          = keymap_letters[k],
-				text_width      = rl.MeasureText(keymap_letters[k], font_size),
-				x               = i*octave_width + i32(jj)*key_width + (3*key_width)/4,
-				w               = key_width/2,
-				h               = (7*key_height)/12,
+				text_width      = rl.MeasureText(keymap_letters[k], FONT_SIZE),
+				x               = i*OCTAVE_WIDTH + i32(jj)*KEY_WIDTH + (3*KEY_WIDTH)/4,
+				w               = KEY_WIDTH/2,
+				h               = (7*KEY_HEIGHT)/12,
 				is_elevated     = true,
 			}
 		}
@@ -83,7 +149,7 @@ main :: proc()
 		x := rl.GetMouseX()
 		y := rl.GetMouseY()
 
-		if y >= 0 && y <= key_height
+		if y >= 0 && y <= KEY_HEIGHT
 		{
 			for key, i in keys
 			{
@@ -121,6 +187,14 @@ main :: proc()
 			{
 				highlighted_keys |= 1 << uint(i)
 			}
+
+			if rl.IsKeyPressed(keyb_key)
+			{
+				ToneCur = (ToneCur + 1) % len(Tones)
+				Tones[ToneCur] = Tone{
+					freq = 261.63*math.pow(2, f32(i)/12),
+				}
+			}
 		}
 
 		rl.BeginDrawing()
@@ -144,8 +218,8 @@ main :: proc()
 					if key.is_elevated do shadow_color, color = color, shadow_color
 
 					rl.DrawRectangle(key.x, 0, key.w, key.h, shadow_color)
-					rl.DrawRectangle(key.x, 0, key.w - shadow_width, key.h - shadow_width, color)
-					rl.DrawText(key.letter, key.x + (key.w - shadow_width)/2 - key.text_width/2, shadow_width + (is_elevated ? 0 : font_size), font_size, shadow_color)
+					rl.DrawRectangle(key.x, 0, key.w - SHADOW_WIDTH, key.h - SHADOW_WIDTH, color)
+					rl.DrawText(key.letter, key.x + (key.w - SHADOW_WIDTH)/2 - key.text_width/2, SHADOW_WIDTH + (is_elevated ? 0 : FONT_SIZE), FONT_SIZE, shadow_color)
 				}
 			}
 		}

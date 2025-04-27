@@ -9,7 +9,7 @@ if not exist build mkdir build
 set "compile_options= -subsystem:windows"
 
 if "%1"=="debug" (
-	set "compile_options=%compile_options% -vet"
+	set "compile_options=%compile_options%"
 ) else if "%1"=="release" (
 	set "compile_options=%compile_options% -o:speed -no-bounds-check"
 ) else (

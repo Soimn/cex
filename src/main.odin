@@ -76,9 +76,52 @@ main :: proc()
 		}
 	}
 
+	KeyUnderMouse :: proc(keys: []Key) -> i32
+	{
+		result := i32(-1)
+
+		x := rl.GetMouseX()
+		y := rl.GetMouseY()
+
+		if y >= 0 && y <= key_height
+		{
+			for key, i in keys
+			{
+				if key.x > x do break
+
+				if x >= key.x && x <= key.x + key.w
+				{
+					result = i32(i)
+					if key.is_elevated do break
+				}
+			}
+		}
+
+		return result
+	}
+
 	for !rl.WindowShouldClose()
 	{
-		highlighted_keys := u64(1 + 64)
+		highlighted_keys := u64(0)
+
+		key_under_mouse := KeyUnderMouse(keys[:]);
+
+		if key_under_mouse != -1 && rl.IsMouseButtonDown(rl.MouseButton.LEFT)
+		{
+			highlighted_keys |= 1 << uint(key_under_mouse)
+		}
+
+		for letter, i in keymap_letters
+		{
+			if letter == nil do continue
+
+			keyb_key := rl.KeyboardKey((([^]u8)(letter))[0])
+
+			if rl.IsKeyDown(keyb_key)
+			{
+				highlighted_keys |= 1 << uint(i)
+			}
+		}
 
 		rl.BeginDrawing()
 		{
